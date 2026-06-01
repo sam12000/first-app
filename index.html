@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QA Command Center</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">🔬</span>
+      <span class="logo-text">QA Command<br><small>Center</small></span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-page="dashboard">
+        <span class="nav-icon">📊</span> Dashboard
+      </a>
+      <a href="#" class="nav-item" data-page="campaigns">
+        <span class="nav-icon">📁</span> Campagnes
+      </a>
+      <a href="#" class="nav-item" data-page="tests">
+        <span class="nav-icon">✅</span> Cas de tests
+      </a>
+      <a href="#" class="nav-item" data-page="anomalies">
+        <span class="nav-icon">🐛</span> Anomalies
+      </a>
+      <a href="#" class="nav-item" data-page="report">
+        <span class="nav-icon">📋</span> Rapport qualité
+      </a>
+      <a href="#" class="nav-item" data-page="settings">
+        <span class="nav-icon">⚙️</span> Paramétrage
+      </a>
+    </nav>
+    <div class="sidebar-footer">v1.0 MVP · Données fictives</div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- HEADER -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 id="page-title">Dashboard</h1>
+      </div>
+      <div class="topbar-right">
+        <select id="campaign-filter" class="campaign-select">
+          <option value="">Toutes les campagnes</option>
+        </select>
+        <span class="env-badge" id="env-badge">–</span>
+      </div>
+    </header>
+
+    <!-- PAGES -->
+
+    <!-- DASHBOARD -->
+    <section id="page-dashboard" class="page active">
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Tests total</div>
+          <div class="kpi-value" id="kpi-total">–</div>
+        </div>
+        <div class="kpi-card success">
+          <div class="kpi-label">Tests OK</div>
+          <div class="kpi-value" id="kpi-ok">–</div>
+        </div>
+        <div class="kpi-card danger">
+          <div class="kpi-label">Tests KO</div>
+          <div class="kpi-value" id="kpi-ko">–</div>
+        </div>
+        <div class="kpi-card warning">
+          <div class="kpi-label">Bloqués</div>
+          <div class="kpi-value" id="kpi-blocked">–</div>
+        </div>
+        <div class="kpi-card info">
+          <div class="kpi-label">Anomalies ouvertes</div>
+          <div class="kpi-value" id="kpi-bugs">–</div>
+        </div>
+        <div class="kpi-card purple">
+          <div class="kpi-label">Couverture</div>
+          <div class="kpi-value" id="kpi-coverage">–</div>
+        </div>
+      </div>
+
+      <div class="dashboard-row">
+        <div class="card">
+          <h2 class="card-title">Avancement des tests</h2>
+          <div class="progress-section">
+            <div class="progress-label">
+              <span>Progression globale</span>
+              <span id="progress-pct">0%</span>
+            </div>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+            </div>
+          </div>
+          <div class="status-breakdown" id="status-breakdown"></div>
+        </div>
+
+        <div class="card gonogo-card">
+          <h2 class="card-title">Décision Go / No Go</h2>
+          <div class="gonogo-badge" id="gonogo-badge">EN ATTENTE</div>
+          <div class="gonogo-criteria" id="gonogo-criteria"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CAMPAGNES -->
+    <section id="page-campaigns" class="page">
+      <div class="page-actions">
+        <button class="btn btn-primary" onclick="openModal('modal-campaign')">+ Nouvelle campagne</button>
+      </div>
+      <div class="card">
+        <table class="data-table" id="campaigns-table">
+          <thead>
+            <tr>
+              <th>ID</th><th>Nom</th><th>Environnement</th><th>Types de tests</th>
+              <th>Statut</th><th>Créée le</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="campaigns-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TESTS -->
+    <section id="page-tests" class="page">
+      <div class="page-actions">
+        <button class="btn btn-primary" onclick="openModal('modal-test')">+ Nouveau cas de test</button>
+      </div>
+      <div class="filters-bar">
+        <select id="test-filter-status" onchange="renderTests()">
+          <option value="">Tous les statuts</option>
+          <option>À faire</option><option>En cours</option>
+          <option>OK</option><option>KO</option><option>Bloqué</option>
+        </select>
+        <select id="test-filter-priority" onchange="renderTests()">
+          <option value="">Toutes priorités</option>
+          <option>P0</option><option>P1</option><option>P2</option>
+        </select>
+      </div>
+      <div id="tests-list" class="tests-list"></div>
+    </section>
+
+    <!-- ANOMALIES -->
+    <section id="page-anomalies" class="page">
+      <div class="page-actions">
+        <button class="btn btn-primary" onclick="openModal('modal-anomaly')">+ Nouvelle anomalie</button>
+      </div>
+      <div class="filters-bar">
+        <select id="anomaly-filter-status" onchange="renderAnomalies()">
+          <option value="">Tous les statuts</option>
+          <option>Ouvert</option><option>En cours</option><option>Résolu</option><option>Fermé</option>
+        </select>
+        <select id="anomaly-filter-severity" onchange="renderAnomalies()">
+          <option value="">Toutes sévérités</option>
+          <option>Bloquante</option><option>Critique</option><option>Majeure</option><option>Mineure</option>
+        </select>
+      </div>
+      <div id="anomalies-list" class="anomalies-list"></div>
+    </section>
+
+    <!-- RAPPORT -->
+    <section id="page-report" class="page">
+      <div class="page-actions">
+        <button class="btn btn-secondary" onclick="printReport()">🖨️ Imprimer / PDF</button>
+      </div>
+      <div id="report-content" class="report-content"></div>
+    </section>
+
+  </main>
+
+  <!-- ── MODALES ─────────────────────────────────────────────────── -->
+
+  <!-- Modale Campagne -->
+  <div class="modal-overlay" id="modal-campaign">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-campaign-title">Nouvelle campagne</h3>
+        <button class="modal-close" onclick="closeModal('modal-campaign')">✕</button>
+      </div>
+      <form id="form-campaign" onsubmit="saveCampaign(event)">
+        <input type="hidden" id="campaign-id" />
+        <div class="form-group">
+          <label>Nom de la campagne *</label>
+          <input type="text" id="campaign-name" required placeholder="Ex: Sprint 13 - Tunnel paiement" />
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea id="campaign-desc" rows="2" placeholder="Objectif de la campagne..."></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Environnement *</label>
+            <select id="campaign-env" required>
+              <option value="">— Choisir —</option>
+              <option>DEV</option><option>INT</option><option>REC</option>
+              <option>PREPROD</option><option>PROD (lecture seule)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Statut</label>
+            <select id="campaign-status">
+              <option>Planifiée</option><option>En cours</option>
+              <option>Terminée</option><option>Archivée</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Types de tests</label>
+          <div class="checkbox-group">
+            <label><input type="checkbox" value="Fonctionnel" /> Fonctionnel</label>
+            <label><input type="checkbox" value="API" /> API</label>
+            <label><input type="checkbox" value="E2E" /> E2E</label>
+            <label><input type="checkbox" value="Régression" /> Régression</label>
+            <label><input type="checkbox" value="Performance" /> Performance</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-campaign')">Annuler</button>
+          <button type="submit" class="btn btn-primary">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modale Test -->
+  <div class="modal-overlay" id="modal-test">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3 id="modal-test-title">Nouveau cas de test</h3>
+        <button class="modal-close" onclick="closeModal('modal-test')">✕</button>
+      </div>
+      <form id="form-test" onsubmit="saveTest(event)">
+        <input type="hidden" id="test-id" />
+        <div class="form-row">
+          <div class="form-group flex-2">
+            <label>Titre *</label>
+            <input type="text" id="test-title" required placeholder="Ex: Validation adresse de livraison" />
+          </div>
+          <div class="form-group">
+            <label>Priorité</label>
+            <select id="test-priority">
+              <option>P0</option><option>P1</option><option>P2</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Statut</label>
+            <select id="test-status">
+              <option>À faire</option><option>En cours</option>
+              <option>OK</option><option>KO</option><option>Bloqué</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group flex-2">
+            <label>Campagne *</label>
+            <select id="test-campaign" required></select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Précondition</label>
+          <input type="text" id="test-precondition" placeholder="Ex: Utilisateur connecté, panier non vide" />
+        </div>
+        <div class="form-group">
+          <label>Étapes *</label>
+          <textarea id="test-steps" rows="4" required placeholder="1. ...\n2. ...\n3. ..."></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Résultat attendu *</label>
+            <textarea id="test-expected" rows="3" required placeholder="Ce qui devrait se passer..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Résultat obtenu</label>
+            <textarea id="test-obtained" rows="3" placeholder="Ce qui s'est réellement passé..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-test')">Annuler</button>
+          <button type="submit" class="btn btn-primary">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modale Anomalie -->
+  <div class="modal-overlay" id="modal-anomaly">
+    <div class="modal modal-wide">
+      <div class="modal-header">
+        <h3 id="modal-anomaly-title">Nouvelle anomalie</h3>
+        <button class="modal-close" onclick="closeModal('modal-anomaly')">✕</button>
+      </div>
+      <form id="form-anomaly" onsubmit="saveAnomaly(event)">
+        <input type="hidden" id="anomaly-id" />
+        <div class="form-group">
+          <label>Titre *</label>
+          <input type="text" id="anomaly-title" required placeholder="Ex: Filtre prix non fonctionnel" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Campagne *</label>
+            <select id="anomaly-campaign" required></select>
+          </div>
+          <div class="form-group">
+            <label>Sévérité</label>
+            <select id="anomaly-severity">
+              <option>Bloquante</option><option>Critique</option>
+              <option>Majeure</option><option>Mineure</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Priorité</label>
+            <select id="anomaly-priority">
+              <option>P0</option><option>P1</option><option>P2</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Statut</label>
+            <select id="anomaly-status">
+              <option>Ouvert</option><option>En cours</option>
+              <option>Résolu</option><option>Fermé</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Description *</label>
+          <textarea id="anomaly-desc" rows="2" required placeholder="Description claire du problème..."></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Étapes de reproduction</label>
+            <textarea id="anomaly-steps" rows="4" placeholder="1. ...\n2. ..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Résultat attendu</label>
+            <textarea id="anomaly-expected" rows="2" placeholder="..."></textarea>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Résultat obtenu</label>
+            <textarea id="anomaly-obtained" rows="2" placeholder="..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>Cause probable</label>
+            <textarea id="anomaly-cause" rows="2" placeholder="Hypothèse technique..."></textarea>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Test lié (ID)</label>
+          <input type="text" id="anomaly-linked" placeholder="Ex: TC003" />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('modal-anomaly')">Annuler</button>
+          <button type="submit" class="btn btn-primary">Enregistrer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+    <!-- PARAMÉTRAGE -->
+    <section id="page-settings" class="page">
+      <div class="settings-tabs">
+        <button class="stab active" data-stab="project">🏗️ Projet</button>
+        <button class="stab" data-stab="environments">🌐 Environnements</button>
+        <button class="stab" data-stab="users">👥 Utilisateurs</button>
+        <button class="stab" data-stab="test-types">🧪 Types de tests</button>
+        <button class="stab" data-stab="severities">🎯 Sévérités</button>
+        <button class="stab" data-stab="custom-fields">🔧 Champs custom</button>
+        <button class="stab" data-stab="releases">🚀 Releases & Cycles</button>
+        <button class="stab" data-stab="workflow">🔀 Workflow</button>
+        <button class="stab" data-stab="integrations">🔌 Intégrations</button>
+        <button class="stab" data-stab="ai">🤖 IA & Auto</button>
+      </div>
+
+      <!-- PROJET -->
+      <div class="stab-panel active" id="stab-project">
+        <div class="settings-card">
+          <h3 class="settings-title">Informations du projet</h3>
+          <form id="form-project" onsubmit="saveProject(event)">
+            <div class="form-row">
+              <div class="form-group"><label>Nom du projet *</label><input type="text" id="proj-name" required /></div>
+              <div class="form-group"><label>Version courante</label><input type="text" id="proj-version" /></div>
+            </div>
+            <div class="form-group"><label>Description</label><textarea id="proj-desc" rows="2"></textarea></div>
+            <div class="form-row">
+              <div class="form-group"><label>URL cible</label><input type="url" id="proj-url" /></div>
+              <div class="form-group"><label>Équipe</label><input type="text" id="proj-team" /></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label>Chef de projet / QA Lead</label><input type="text" id="proj-owner" /></div>
+              <div class="form-group"><label>Date début</label><input type="date" id="proj-start" /></div>
+              <div class="form-group"><label>Date fin</label><input type="date" id="proj-end" /></div>
+            </div>
+            <button type="submit" class="btn btn-primary">💾 Enregistrer le projet</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- ENVIRONNEMENTS -->
+      <div class="stab-panel" id="stab-environments">
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <h3 class="settings-title">Environnements de test</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('modal-env')">+ Ajouter</button>
+          </div>
+          <table class="data-table" id="env-table">
+            <thead><tr><th>Nom</th><th>URL</th><th>Auth</th><th>Statut</th><th>Notes</th><th>Actions</th></tr></thead>
+            <tbody id="env-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- UTILISATEURS -->
+      <div class="stab-panel" id="stab-users">
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <h3 class="settings-title">Utilisateurs & Rôles</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('modal-user')">+ Ajouter</button>
+          </div>
+          <div id="users-grid" class="users-grid"></div>
+        </div>
+        <div class="settings-card" style="margin-top:16px">
+          <h3 class="settings-title">Matrice des droits</h3>
+          <table class="data-table perm-table">
+            <thead><tr><th>Action</th><th>QA Lead</th><th>QA Engineer</th><th>Dev</th><th>PO</th><th>Observer</th></tr></thead>
+            <tbody>
+              <tr><td>Créer un test</td><td>✅</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td></tr>
+              <tr><td>Modifier un test</td><td>✅</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td></tr>
+              <tr><td>Clôturer une anomalie</td><td>✅</td><td>❌</td><td>✅</td><td>❌</td><td>❌</td></tr>
+              <tr><td>Décision Go/No Go</td><td>✅</td><td>❌</td><td>❌</td><td>✅</td><td>❌</td></tr>
+              <tr><td>Modifier le paramétrage</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td><td>❌</td></tr>
+              <tr><td>Consulter les rapports</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+              <tr><td>Lancer une campagne</td><td>✅</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td></tr>
+              <tr><td>Exporter Jira</td><td>✅</td><td>✅</td><td>✅</td><td>❌</td><td>❌</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TYPES DE TESTS -->
+      <div class="stab-panel" id="stab-test-types">
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <h3 class="settings-title">Types de tests</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('modal-test-type')">+ Ajouter</button>
+          </div>
+          <div id="test-types-list" class="test-types-list"></div>
+        </div>
+      </div>
+
+      <!-- SÉVÉRITÉS & PRIORITÉS -->
+      <div class="stab-panel" id="stab-severities">
+        <div class="settings-row">
+          <div class="settings-card flex-1">
+            <div class="settings-card-header">
+              <h3 class="settings-title">Niveaux de sévérité</h3>
+              <button class="btn btn-primary btn-sm" onclick="openModal('modal-severity')">+ Ajouter</button>
+            </div>
+            <div id="severities-list"></div>
+          </div>
+          <div class="settings-card flex-1">
+            <h3 class="settings-title">Niveaux de priorité</h3>
+            <div id="priorities-list"></div>
+            <div class="info-box" style="margin-top:12px">
+              <strong>SLA par sévérité :</strong> Les SLA définissent le délai maximal de prise en charge
+              d'une anomalie selon son niveau de criticité.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHAMPS PERSONNALISÉS -->
+      <div class="stab-panel" id="stab-custom-fields">
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <h3 class="settings-title">Champs personnalisés</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('modal-cf')">+ Ajouter un champ</button>
+          </div>
+          <div class="cf-tabs">
+            <button class="cf-tab active" onclick="filterCF('test', this)">Sur les tests</button>
+            <button class="cf-tab" onclick="filterCF('anomaly', this)">Sur les anomalies</button>
+          </div>
+          <table class="data-table" id="cf-table">
+            <thead><tr><th>Nom</th><th>Type</th><th>Entité</th><th>Obligatoire</th><th>Valeurs</th><th>Actif</th><th>Actions</th></tr></thead>
+            <tbody id="cf-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- RELEASES & CYCLES -->
+      <div class="stab-panel" id="stab-releases">
+        <div class="settings-card">
+          <div class="settings-card-header">
+            <h3 class="settings-title">Releases</h3>
+            <button class="btn btn-primary btn-sm" onclick="openModal('modal-release')">+ Nouvelle release</button>
+          </div>
+          <div id="releases-list"></div>
+        </div>
+      </div>
+
+      <!-- WORKFLOW -->
+      <div class="stab-panel" id="stab-workflow">
+        <div class="settings-row">
+          <div class="settings-card flex-1">
+            <div class="settings-card-header">
+              <h3 class="settings-title">Statuts — Tests</h3>
+              <button class="btn btn-primary btn-sm" onclick="openModal('modal-wstatus', 'test')">+ Statut</button>
+            </div>
+            <div id="wf-test-statuses"></div>
+          </div>
+          <div class="settings-card flex-1">
+            <div class="settings-card-header">
+              <h3 class="settings-title">Statuts — Anomalies</h3>
+              <button class="btn btn-primary btn-sm" onclick="openModal('modal-wstatus', 'anomaly')">+ Statut</button>
+            </div>
+            <div id="wf-anomaly-statuses"></div>
+          </div>
+        </div>
+        <div class="settings-card" style="margin-top:16px">
+          <h3 class="settings-title">Transitions autorisées</h3>
+          <table class="data-table">
+            <thead><tr><th>De</th><th>Vers</th><th>Rôles autorisés</th></tr></thead>
+            <tbody id="wf-transitions"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- INTÉGRATIONS -->
+      <div class="stab-panel" id="stab-integrations">
+        <div class="settings-card">
+          <h3 class="settings-title">Intégrations externes</h3>
+          <div id="integrations-grid" class="integrations-grid"></div>
+        </div>
+      </div>
+
+      <!-- IA -->
+      <div class="stab-panel" id="stab-ai">
+        <div class="settings-row">
+          <div class="settings-card flex-1">
+            <h3 class="settings-title">Configuration IA</h3>
+            <form id="form-ai" onsubmit="saveAI(event)">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Modèle IA</label>
+                  <select id="ai-model">
+                    <option value="claude-sonnet">Claude Sonnet (recommandé)</option>
+                    <option value="claude-haiku">Claude Haiku (rapide)</option>
+                    <option value="claude-opus">Claude Opus (précis)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Langue de génération</label>
+                  <select id="ai-lang">
+                    <option value="fr">Français</option>
+                    <option value="en">English</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>URL de contexte (site à tester)</label>
+                <input type="url" id="ai-url" placeholder="https://..." />
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Score de confiance minimum (%)</label>
+                  <input type="number" id="ai-confidence" min="0" max="100" />
+                </div>
+                <div class="form-group">
+                  <label>Max suggestions par run</label>
+                  <input type="number" id="ai-max" min="1" max="20" />
+                </div>
+              </div>
+              <div class="toggle-row">
+                <span>IA activée globalement</span>
+                <label class="toggle"><input type="checkbox" id="ai-enabled" /><span class="toggle-slider"></span></label>
+              </div>
+              <div class="toggle-row">
+                <span>Génération auto sur nouvelle exigence</span>
+                <label class="toggle"><input type="checkbox" id="ai-auto-gen" /><span class="toggle-slider"></span></label>
+              </div>
+              <button type="submit" class="btn btn-primary" style="margin-top:14px">💾 Enregistrer</button>
+            </form>
+          </div>
+          <div class="settings-card flex-1">
+            <h3 class="settings-title">Fonctionnalités IA actives</h3>
+            <div id="ai-features-list"></div>
+          </div>
+        </div>
+
+        <div class="settings-card" style="margin-top:16px">
+          <h3 class="settings-title">🤖 Générateur de cas de tests par IA</h3>
+          <div class="ai-gen-box">
+            <div class="form-group">
+              <label>Décrivez une exigence ou fonctionnalité à tester</label>
+              <textarea id="ai-requirement" rows="3" placeholder="Ex : L'utilisateur doit pouvoir ajouter un produit au panier depuis la page de résultats de recherche..."></textarea>
+            </div>
+            <div class="form-row" style="align-items:flex-end">
+              <div class="form-group" style="max-width:140px">
+                <label>Nombre de tests</label>
+                <select id="ai-count">
+                  <option value="3">3</option><option value="5">5</option><option value="10">10</option>
+                </select>
+              </div>
+              <button class="btn btn-primary" onclick="generateAITests()" style="margin-bottom:14px">✨ Générer avec l'IA</button>
+            </div>
+            <div id="ai-results" class="ai-results"></div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ── MODALES PARAMÉTRAGE ──────────────────────────────────────── -->
+
+  <!-- Modale Environnement -->
+  <div class="modal-overlay" id="modal-env">
+    <div class="modal"><div class="modal-header"><h3 id="modal-env-title">Nouvel environnement</h3><button class="modal-close" onclick="closeModal('modal-env')">✕</button></div>
+    <form id="form-env" onsubmit="saveEnv(event)"><input type="hidden" id="env-id" />
+      <div class="form-row">
+        <div class="form-group"><label>Nom *</label><input id="env-name" required placeholder="Ex: UAT" /></div>
+        <div class="form-group"><label>Statut</label>
+          <select id="env-status"><option>Actif</option><option>Inactif</option><option>Lecture seule</option></select>
+        </div>
+      </div>
+      <div class="form-group"><label>URL *</label><input type="url" id="env-url" required placeholder="https://..." /></div>
+      <div class="form-row">
+        <div class="form-group"><label>Authentification</label>
+          <select id="env-auth"><option>Basic</option><option>SSO</option><option>Token</option><option>Aucune</option></select>
+        </div>
+        <div class="form-group"><label>Notes</label><input id="env-notes" placeholder="Description courte..." /></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('modal-env')">Annuler</button><button type="submit" class="btn btn-primary">Enregistrer</button></div>
+    </form></div>
+  </div>
+
+  <!-- Modale Utilisateur -->
+  <div class="modal-overlay" id="modal-user">
+    <div class="modal"><div class="modal-header"><h3 id="modal-user-title">Nouvel utilisateur</h3><button class="modal-close" onclick="closeModal('modal-user')">✕</button></div>
+    <form id="form-user" onsubmit="saveUser(event)"><input type="hidden" id="user-id" />
+      <div class="form-row">
+        <div class="form-group flex-2"><label>Nom complet *</label><input id="user-name" required /></div>
+        <div class="form-group"><label>Statut</label>
+          <select id="user-status"><option>Actif</option><option>Inactif</option></select>
+        </div>
+      </div>
+      <div class="form-group"><label>Email *</label><input type="email" id="user-email" required /></div>
+      <div class="form-group"><label>Rôle *</label>
+        <select id="user-role" required>
+          <option>QA Lead</option><option>QA Engineer</option><option>Dev</option><option>PO</option><option>Observer</option>
+        </select>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('modal-user')">Annuler</button><button type="submit" class="btn btn-primary">Enregistrer</button></div>
+    </form></div>
+  </div>
+
+  <!-- Modale Type de test -->
+  <div class="modal-overlay" id="modal-test-type">
+    <div class="modal"><div class="modal-header"><h3>Nouveau type de test</h3><button class="modal-close" onclick="closeModal('modal-test-type')">✕</button></div>
+    <form id="form-test-type" onsubmit="saveTestType(event)"><input type="hidden" id="tt-id" />
+      <div class="form-row">
+        <div class="form-group flex-2"><label>Nom *</label><input id="tt-name" required /></div>
+        <div class="form-group"><label>Icône</label><input id="tt-icon" placeholder="🧪" maxlength="2" /></div>
+        <div class="form-group"><label>Couleur</label><input type="color" id="tt-color" value="#6366f1" /></div>
+      </div>
+      <div class="form-group"><label>Description</label><textarea id="tt-desc" rows="2"></textarea></div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('modal-test-type')">Annuler</button><button type="submit" class="btn btn-primary">Enregistrer</button></div>
+    </form></div>
+  </div>
+
+  <!-- Modale Sévérité -->
+  <div class="modal-overlay" id="modal-severity">
+    <div class="modal"><div class="modal-header"><h3>Nouvelle sévérité</h3><button class="modal-close" onclick="closeModal('modal-severity')">✕</button></div>
+    <form id="form-severity" onsubmit="saveSeverity(event)"><input type="hidden" id="sev-id" />
+      <div class="form-row">
+        <div class="form-group flex-2"><label>Nom *</label><input id="sev-name" required /></div>
+        <div class="form-group"><label>Couleur</label><input type="color" id="sev-color" value="#ef4444" /></div>
+        <div class="form-group"><label>Niveau</label><input type="number" id="sev-level" min="1" max="10" value="5" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>SLA *</label><input id="sev-sla" required placeholder="Ex: 4h, 24h, 7j" /></div>
+        <div class="form-group flex-2"><label>Description</label><input id="sev-desc" /></div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('modal-severity')">Annuler</button><button type="submit" class="btn btn-primary">Enregistrer</button></div>
+    </form></div>
+  </div>
+
+  <!-- Modale Champ personnalisé -->
+  <div class="modal-overlay" id="modal-cf">
+    <div class="modal"><div class="modal-header"><h3>Nouveau champ personnalisé</h3><button class="modal-close" onclick="closeModal('modal-cf')">✕</button></div>
+    <form id="form-cf" onsubmit="saveCF(event)"><input type="hidden" id="cf-id" />
+      <div class="form-row">
+        <div class="form-group flex-2"><label>Nom *</label><input id="cf-name" required /></div>
+        <div class="form-group"><label>Type *</label>
+          <select id="cf-type" required onchange="toggleCFOptions()">
+            <option value="text">Texte</option><option value="number">Nombre</option>
+            <option value="boolean">Oui / Non</option><option value="select">Liste de choix</option>
+            <option value="date">Date</option><option value="url">URL</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Entité *</label>
+          <select id="cf-entity" required><option value="test">Test</option><option value="anomaly">Anomalie</option></select>
+        </div>
+        <div class="form-group">
+          <label>Obligatoire</label>
+          <select id="cf-required"><option value="false">Non</option><option value="true">Oui</option></select>
+        </div>
+      </div>
+      <div class="form-group" id="cf-options-group" style="display:none">
+        <label>Valeurs (séparées par une virgule)</label>
+        <input id="cf-options" placeholder="Option1, Option2, Option3" />
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('modal-cf')">Annuler</button><button type="submit" class="btn btn-primary">Enregistrer</button></div>
+    </form></div>
+  </div>
+
+  <!-- Modale Release -->
+  <div class="modal-overlay" id="modal-release">
+    <div class="modal"><div class="modal-header"><h3>Nouvelle release</h3><button class="modal-close" onclick="closeModal('modal-release')">✕</button></div>
+    <form id="form-release" onsubmit="saveRelease(event)">
+      <div class="form-row">
+        <div class="form-group flex-2"><label>Nom *</label><input id="rel-name" required placeholder="Ex: Release 2.15" /></div>
+        <div class="form-group"><label>Version *</label><input id="rel-version" required placeholder="2.15.0" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Date début</label><input type="date" id="rel-start" /></div>
+        <div class="form-group"><label>Date fin</label><input type="date" id="rel-end" /></div>
+        <div class="form-group"><label>Statut</label>
+          <select id="rel-status"><option>Planifiée</option><option>En cours</option><option>Terminée</option></select>
+        </div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('modal-release')">Annuler</button><button type="submit" class="btn btn-primary">Enregistrer</button></div>
+    </form></div>
+  </div>
+
+  <!-- Modale Statut Workflow -->
+  <div class="modal-overlay" id="modal-wstatus">
+    <div class="modal"><div class="modal-header"><h3 id="modal-wstatus-title">Nouveau statut</h3><button class="modal-close" onclick="closeModal('modal-wstatus')">✕</button></div>
+    <input type="hidden" id="wstatus-entity" value="test" />
+    <form id="form-wstatus" onsubmit="saveWStatus(event)">
+      <div class="form-row">
+        <div class="form-group flex-2"><label>Nom *</label><input id="ws-name" required /></div>
+        <div class="form-group"><label>Couleur</label><input type="color" id="ws-color" value="#6366f1" /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Statut initial ?</label>
+          <select id="ws-initial"><option value="false">Non</option><option value="true">Oui</option></select>
+        </div>
+        <div class="form-group"><label>Statut final ?</label>
+          <select id="ws-final"><option value="false">Non</option><option value="true">Oui</option></select>
+        </div>
+      </div>
+      <div class="modal-footer"><button type="button" class="btn btn-secondary" onclick="closeModal('modal-wstatus')">Annuler</button><button type="submit" class="btn btn-primary">Enregistrer</button></div>
+    </form></div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
