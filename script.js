@@ -48,6 +48,7 @@ function navigate(page) {
   if (page === 'tests') renderTests();
   if (page === 'anomalies') renderAnomalies();
   if (page === 'report') renderReport();
+  if (page === 'settings') loadSettings();
 }
 
 /* ── Filtre campagne global ───────────────────────────────────────── */
@@ -146,7 +147,7 @@ function renderDashboard() {
   const gng = d.goNoGo ?? 'EN ATTENTE';
   badge.textContent = gng;
   badge.className = 'gonogo-badge';
-  if (gng.includes('GO ✅') && !gng.includes('NO')) badge.classList.add('go');
+  if (gng.includes('GO') && !gng.includes('NO')) badge.classList.add('go');
   else if (gng.includes('NO GO')) badge.classList.add('nogo');
   else if (gng.includes('CONDITIONNEL')) badge.classList.add('cond');
 
@@ -181,9 +182,6 @@ function renderCampaigns() {
   });
 }
 
-function openModal(id) {
-  document.getElementById(id).classList.add('open');
-}
 function closeModal(id) {
   document.getElementById(id).classList.remove('open');
 }
@@ -482,7 +480,7 @@ async function renderReport() {
   if ((d.criticalBugs || 0) > 0) risks.push(`${d.criticalBugs} anomalie(s) bloquante(s)/critique(s) ouverte(s)`);
   if ((d.coverage || 0) < 80) risks.push(`Couverture insuffisante : ${d.coverage}% (seuil recommandé : 80%)`);
 
-  const gngCls = (d.goNoGo || '').includes('GO ✅') && !(d.goNoGo || '').includes('NO')
+  const gngCls = (d.goNoGo || '').includes('GO') && !(d.goNoGo || '').includes('NO')
     ? 'go' : (d.goNoGo || '').includes('NO GO') ? 'nogo' : 'cond';
   const bgColor = { go: 'rgba(16,185,129,0.15)', nogo: 'rgba(239,68,68,0.15)', cond: 'rgba(245,158,11,0.15)' }[gngCls];
   const txtColor = { go: 'var(--success)', nogo: 'var(--danger)', cond: 'var(--warning)' }[gngCls];
@@ -549,6 +547,639 @@ function toast(msg) {
   setTimeout(() => el.classList.remove('show'), 2800);
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   PARAMÉTRAGE
+   ════════════════════════════════════════════════════════════════════ */
+
+let cfgData = {};
+
+async function loadSettings() {
+  const [project, environments, users, testTypes, severities, customFields, releases, workflow, integrations, aiSettings] = await Promise.all([
+    api('GET', '/api/config/project'),
+    api('GET', '/api/config/environments'),
+    api('GET', '/api/config/users'),
+    api('GET', '/api/config/test-types'),
+    api('GET', '/api/config/severities'),
+    api('GET', '/api/config/custom-fields'),
+    api('GET', '/api/config/releases'),
+    api('GET', '/api/config/workflow'),
+    api('GET', '/api/config/integrations'),
+    api('GET', '/api/config/ai')
+  ]);
+  cfgData = { project, environments, users, testTypes, severities, customFields, releases, workflow, integrations, aiSettings };
+  renderAllSettings();
+}
+
+function renderAllSettings() {
+  renderProjectForm();
+  renderEnvTable();
+  renderUsersGrid();
+  renderTestTypesList();
+  renderSeveritiesList();
+  renderCFTable('test');
+  renderReleases();
+  renderWorkflow();
+  renderIntegrations();
+  renderAISettings();
+}
+
+// ── Onglets settings ──────────────────────────────────────────────────────────
+document.querySelectorAll('.stab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.stab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.stab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const panelId = `stab-${btn.dataset.stab}`;
+    document.getElementById(panelId)?.classList.add('active');
+  });
+});
+
+// ── PROJET ────────────────────────────────────────────────────────────────────
+function renderProjectForm() {
+  const p = cfgData.project || {};
+  document.getElementById('proj-name').value    = p.name || '';
+  document.getElementById('proj-version').value = p.version || '';
+  document.getElementById('proj-desc').value    = p.description || '';
+  document.getElementById('proj-url').value     = p.url || '';
+  document.getElementById('proj-team').value    = p.team || '';
+  document.getElementById('proj-owner').value   = p.owner || '';
+  document.getElementById('proj-start').value   = p.startDate || '';
+  document.getElementById('proj-end').value     = p.endDate || '';
+}
+
+async function saveProject(e) {
+  e.preventDefault();
+  await api('PUT', '/api/config/project', {
+    name: document.getElementById('proj-name').value,
+    version: document.getElementById('proj-version').value,
+    description: document.getElementById('proj-desc').value,
+    url: document.getElementById('proj-url').value,
+    team: document.getElementById('proj-team').value,
+    owner: document.getElementById('proj-owner').value,
+    startDate: document.getElementById('proj-start').value,
+    endDate: document.getElementById('proj-end').value
+  });
+  toast('Projet enregistré ✅');
+}
+
+// ── ENVIRONNEMENTS ────────────────────────────────────────────────────────────
+function renderEnvTable() {
+  const tbody = document.getElementById('env-tbody');
+  const envs = cfgData.environments || [];
+  tbody.innerHTML = envs.map(e => `
+    <tr>
+      <td><span class="badge badge-env">${e.name}</span></td>
+      <td><a href="${e.url}" target="_blank" class="int-url" style="font-size:12px">${e.url}</a></td>
+      <td><span class="badge">${e.auth}</span></td>
+      <td><span class="badge ${e.status === 'Actif' ? 'badge-ok' : e.status === 'Lecture seule' ? 'badge-blocked' : ''}">${e.status}</span></td>
+      <td style="color:var(--text-muted);font-size:12px">${e.notes || '–'}</td>
+      <td>
+        <button class="btn btn-sm btn-secondary" onclick="editEnv('${e.id}')">✏️</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteEnv('${e.id}')">🗑️</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">Aucun environnement</td></tr>';
+}
+
+async function saveEnv(e) {
+  e.preventDefault();
+  const id = document.getElementById('env-id').value;
+  const data = {
+    name: document.getElementById('env-name').value,
+    url: document.getElementById('env-url').value,
+    auth: document.getElementById('env-auth').value,
+    status: document.getElementById('env-status').value,
+    notes: document.getElementById('env-notes').value
+  };
+  if (id) { await api('PUT', `/api/config/environments/${id}`, data); toast('Environnement modifié ✅'); }
+  else     { await api('POST', '/api/config/environments', data);     toast('Environnement ajouté ✅'); }
+  closeModal('modal-env');
+  cfgData.environments = await api('GET', '/api/config/environments');
+  renderEnvTable();
+}
+
+function editEnv(id) {
+  const e = cfgData.environments.find(x => x.id === id);
+  if (!e) return;
+  document.getElementById('env-id').value     = e.id;
+  document.getElementById('env-name').value   = e.name;
+  document.getElementById('env-url').value    = e.url;
+  document.getElementById('env-auth').value   = e.auth;
+  document.getElementById('env-status').value = e.status;
+  document.getElementById('env-notes').value  = e.notes || '';
+  document.getElementById('modal-env-title').textContent = 'Modifier l\'environnement';
+  openModal('modal-env');
+}
+
+async function deleteEnv(id) {
+  if (!confirm('Supprimer cet environnement ?')) return;
+  await api('DELETE', `/api/config/environments/${id}`);
+  toast('Environnement supprimé');
+  cfgData.environments = await api('GET', '/api/config/environments');
+  renderEnvTable();
+}
+
+// ── UTILISATEURS ─────────────────────────────────────────────────────────────
+const roleColors = { 'QA Lead': '#6366f1', 'QA Engineer': '#10b981', 'Dev': '#3b82f6', 'PO': '#f59e0b', 'Observer': '#64748b' };
+
+function renderUsersGrid() {
+  const grid = document.getElementById('users-grid');
+  grid.innerHTML = (cfgData.users || []).map(u => `
+    <div class="user-card">
+      <div class="user-avatar" style="background:${roleColors[u.role] || '#6366f1'}">${u.avatar}</div>
+      <div class="user-info">
+        <div class="user-name">${u.name}</div>
+        <div class="user-email">${u.email}</div>
+        <span class="badge" style="margin-top:4px;background:${roleColors[u.role]}22;color:${roleColors[u.role]}">${u.role}</span>
+        <span class="badge ${u.status === 'Actif' ? 'badge-ok' : ''}" style="margin-left:4px">${u.status}</span>
+      </div>
+      <div class="user-actions">
+        <button class="btn btn-sm btn-secondary" title="Modifier" onclick="editUser('${u.id}')">✏️</button>
+        <button class="btn btn-sm btn-danger" title="Supprimer" onclick="deleteUser('${u.id}')">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+
+async function saveUser(e) {
+  e.preventDefault();
+  const id = document.getElementById('user-id').value;
+  const data = {
+    name:   document.getElementById('user-name').value,
+    email:  document.getElementById('user-email').value,
+    role:   document.getElementById('user-role').value,
+    status: document.getElementById('user-status').value
+  };
+  if (id) { await api('PUT', `/api/config/users/${id}`, data); toast('Utilisateur modifié ✅'); }
+  else     { await api('POST', '/api/config/users', data);     toast('Utilisateur ajouté ✅'); }
+  closeModal('modal-user');
+  cfgData.users = await api('GET', '/api/config/users');
+  renderUsersGrid();
+}
+
+function editUser(id) {
+  const u = cfgData.users.find(x => x.id === id);
+  if (!u) return;
+  document.getElementById('user-id').value     = u.id;
+  document.getElementById('user-name').value   = u.name;
+  document.getElementById('user-email').value  = u.email;
+  document.getElementById('user-role').value   = u.role;
+  document.getElementById('user-status').value = u.status;
+  document.getElementById('modal-user-title').textContent = 'Modifier l\'utilisateur';
+  openModal('modal-user');
+}
+
+async function deleteUser(id) {
+  if (!confirm('Supprimer cet utilisateur ?')) return;
+  await api('DELETE', `/api/config/users/${id}`);
+  toast('Utilisateur supprimé');
+  cfgData.users = await api('GET', '/api/config/users');
+  renderUsersGrid();
+}
+
+// ── TYPES DE TESTS ────────────────────────────────────────────────────────────
+function renderTestTypesList() {
+  const list = document.getElementById('test-types-list');
+  list.innerHTML = (cfgData.testTypes || []).map(t => `
+    <div class="tt-item" style="border-left-color:${t.color}">
+      <span class="tt-icon">${t.icon}</span>
+      <div class="tt-info">
+        <div class="tt-name">${t.name}</div>
+        <div class="tt-desc">${t.description}</div>
+      </div>
+      <div class="tt-actions">
+        <label class="toggle" title="${t.active ? 'Désactiver' : 'Activer'}">
+          <input type="checkbox" ${t.active ? 'checked' : ''} onchange="toggleTestType('${t.id}', this.checked)" />
+          <span class="toggle-slider"></span>
+        </label>
+        <button class="btn btn-sm btn-danger" onclick="deleteTestType('${t.id}')">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+
+async function saveTestType(e) {
+  e.preventDefault();
+  const id = document.getElementById('tt-id').value;
+  const data = {
+    name: document.getElementById('tt-name').value,
+    icon: document.getElementById('tt-icon').value || '🧪',
+    color: document.getElementById('tt-color').value,
+    description: document.getElementById('tt-desc').value,
+    active: true
+  };
+  if (id) { await api('PUT', `/api/config/test-types/${id}`, data); }
+  else    { await api('POST', '/api/config/test-types', data); toast('Type de test ajouté ✅'); }
+  closeModal('modal-test-type');
+  cfgData.testTypes = await api('GET', '/api/config/test-types');
+  renderTestTypesList();
+}
+
+async function toggleTestType(id, active) {
+  await api('PUT', `/api/config/test-types/${id}`, { active });
+  toast(active ? 'Type activé' : 'Type désactivé');
+  cfgData.testTypes = await api('GET', '/api/config/test-types');
+}
+
+async function deleteTestType(id) {
+  if (!confirm('Supprimer ce type de test ?')) return;
+  await api('DELETE', `/api/config/test-types/${id}`);
+  toast('Type supprimé');
+  cfgData.testTypes = await api('GET', '/api/config/test-types');
+  renderTestTypesList();
+}
+
+// ── SÉVÉRITÉS ─────────────────────────────────────────────────────────────────
+function renderSeveritiesList() {
+  const list = document.getElementById('severities-list');
+  list.innerHTML = (cfgData.severities || []).sort((a,b) => a.level - b.level).map(s => `
+    <div class="sev-item">
+      <span class="sev-dot" style="background:${s.color}"></span>
+      <div class="sev-info">
+        <div class="sev-name">${s.name}</div>
+        <div class="sev-meta">Niveau ${s.level} · SLA : <strong>${s.sla}</strong> · ${s.description}</div>
+      </div>
+      <button class="btn btn-sm btn-danger" onclick="deleteSeverity('${s.id}')">🗑️</button>
+    </div>`).join('');
+
+  const plist = document.getElementById('priorities-list');
+  plist.innerHTML = (cfgData.severities || []).map((s, i) => `
+    <div class="sev-item">
+      <span class="sev-dot" style="background:${s.color}"></span>
+      <div class="sev-info">
+        <div class="sev-name">P${i} — ${s.name}</div>
+        <div class="sev-meta">SLA prise en charge : <strong>${s.sla}</strong></div>
+      </div>
+    </div>`).join('');
+}
+
+async function saveSeverity(e) {
+  e.preventDefault();
+  const id = document.getElementById('sev-id').value;
+  const data = {
+    name: document.getElementById('sev-name').value,
+    color: document.getElementById('sev-color').value,
+    level: parseInt(document.getElementById('sev-level').value),
+    sla: document.getElementById('sev-sla').value,
+    description: document.getElementById('sev-desc').value
+  };
+  if (id) await api('PUT', `/api/config/severities/${id}`, data);
+  else    { await api('POST', '/api/config/severities', data); toast('Sévérité ajoutée ✅'); }
+  closeModal('modal-severity');
+  cfgData.severities = await api('GET', '/api/config/severities');
+  renderSeveritiesList();
+}
+
+async function deleteSeverity(id) {
+  if (!confirm('Supprimer cette sévérité ?')) return;
+  await api('DELETE', `/api/config/severities/${id}`);
+  toast('Sévérité supprimée');
+  cfgData.severities = await api('GET', '/api/config/severities');
+  renderSeveritiesList();
+}
+
+// ── CHAMPS PERSONNALISÉS ──────────────────────────────────────────────────────
+let cfFilter = 'test';
+
+function filterCF(entity, btn) {
+  cfFilter = entity;
+  document.querySelectorAll('.cf-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCFTable(entity);
+}
+
+function renderCFTable(entity) {
+  const tbody = document.getElementById('cf-tbody');
+  const fields = (cfgData.customFields || []).filter(f => f.entity === entity);
+  tbody.innerHTML = fields.map(f => `
+    <tr>
+      <td><strong>${f.name}</strong></td>
+      <td><span class="badge">${f.type}</span></td>
+      <td><span class="badge badge-env">${f.entity === 'test' ? 'Test' : 'Anomalie'}</span></td>
+      <td>${f.required ? '✅ Oui' : '–'}</td>
+      <td style="font-size:11px;color:var(--text-muted)">${(f.options||[]).join(', ') || '–'}</td>
+      <td>
+        <label class="toggle">
+          <input type="checkbox" ${f.active ? 'checked' : ''} onchange="toggleCF('${f.id}', this.checked)" />
+          <span class="toggle-slider"></span>
+        </label>
+      </td>
+      <td>
+        <button class="btn btn-sm btn-danger" onclick="deleteCF('${f.id}')">🗑️</button>
+      </td>
+    </tr>`).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:16px">Aucun champ personnalisé sur les ${entity === 'test' ? 'tests' : 'anomalies'}</td></tr>`;
+}
+
+function toggleCFOptions() {
+  const type = document.getElementById('cf-type').value;
+  document.getElementById('cf-options-group').style.display = type === 'select' ? 'block' : 'none';
+}
+
+async function saveCF(e) {
+  e.preventDefault();
+  const id = document.getElementById('cf-id').value;
+  const type = document.getElementById('cf-type').value;
+  const optStr = document.getElementById('cf-options').value;
+  const data = {
+    name: document.getElementById('cf-name').value,
+    type,
+    entity: document.getElementById('cf-entity').value,
+    required: document.getElementById('cf-required').value === 'true',
+    options: type === 'select' ? optStr.split(',').map(s => s.trim()).filter(Boolean) : [],
+    active: true
+  };
+  if (id) await api('PUT', `/api/config/custom-fields/${id}`, data);
+  else    { await api('POST', '/api/config/custom-fields', data); toast('Champ ajouté ✅'); }
+  closeModal('modal-cf');
+  cfgData.customFields = await api('GET', '/api/config/custom-fields');
+  renderCFTable(cfFilter);
+}
+
+async function toggleCF(id, active) {
+  await api('PUT', `/api/config/custom-fields/${id}`, { active });
+  cfgData.customFields = await api('GET', '/api/config/custom-fields');
+}
+
+async function deleteCF(id) {
+  if (!confirm('Supprimer ce champ ?')) return;
+  await api('DELETE', `/api/config/custom-fields/${id}`);
+  toast('Champ supprimé');
+  cfgData.customFields = await api('GET', '/api/config/custom-fields');
+  renderCFTable(cfFilter);
+}
+
+// ── RELEASES & CYCLES ─────────────────────────────────────────────────────────
+function renderReleases() {
+  const list = document.getElementById('releases-list');
+  const statusCls = { 'En cours': 'badge-progress', 'Terminée': 'badge-ok', 'Planifiée': '' };
+  list.innerHTML = (cfgData.releases || []).map(r => `
+    <div class="release-item">
+      <div class="release-header" onclick="toggleRelease('${r.id}')">
+        <span style="font-size:18px">🚀</span>
+        <span class="release-name">${r.name}</span>
+        <span class="badge badge-env">${r.version}</span>
+        <span class="badge ${statusCls[r.status]||''}">${r.status}</span>
+        <span style="font-size:12px;color:var(--text-muted)">${r.startDate} → ${r.endDate}</span>
+        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteRelease('${r.id}')">🗑️</button>
+      </div>
+      <div class="release-cycles" id="cycles-${r.id}" style="display:none">
+        ${(r.cycles||[]).map(c => `
+          <div class="cycle-item">
+            <span style="color:var(--text-muted);font-size:11px">📅</span>
+            <span class="cycle-name">${c.name}</span>
+            <span class="badge">${c.status}</span>
+            <span style="font-size:11px;color:var(--text-muted)">${c.startDate} → ${c.endDate}</span>
+            <button class="btn btn-sm btn-danger" onclick="deleteCycle('${r.id}','${c.id}')">🗑️</button>
+          </div>`).join('')}
+        <button class="btn btn-sm btn-secondary add-cycle-btn" onclick="addCycle('${r.id}')">+ Ajouter un cycle</button>
+      </div>
+    </div>`).join('') || '<p style="color:var(--text-muted);text-align:center;padding:20px">Aucune release définie</p>';
+}
+
+function toggleRelease(id) {
+  const el = document.getElementById(`cycles-${id}`);
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+async function saveRelease(e) {
+  e.preventDefault();
+  const data = {
+    name:      document.getElementById('rel-name').value,
+    version:   document.getElementById('rel-version').value,
+    startDate: document.getElementById('rel-start').value,
+    endDate:   document.getElementById('rel-end').value,
+    status:    document.getElementById('rel-status').value
+  };
+  await api('POST', '/api/config/releases', data);
+  toast('Release créée ✅');
+  closeModal('modal-release');
+  cfgData.releases = await api('GET', '/api/config/releases');
+  renderReleases();
+}
+
+async function deleteRelease(id) {
+  if (!confirm('Supprimer cette release ?')) return;
+  await api('DELETE', `/api/config/releases/${id}`);
+  toast('Release supprimée');
+  cfgData.releases = await api('GET', '/api/config/releases');
+  renderReleases();
+}
+
+async function addCycle(releaseId) {
+  const name = prompt('Nom du cycle :');
+  if (!name) return;
+  const start = prompt('Date début (YYYY-MM-DD) :');
+  const end   = prompt('Date fin (YYYY-MM-DD) :');
+  await api('POST', `/api/config/releases/${releaseId}/cycles`, { name, startDate: start, endDate: end, status: 'Planifié' });
+  toast('Cycle ajouté ✅');
+  cfgData.releases = await api('GET', '/api/config/releases');
+  renderReleases();
+  document.getElementById(`cycles-${releaseId}`).style.display = 'block';
+}
+
+async function deleteCycle(releaseId, cycleId) {
+  if (!confirm('Supprimer ce cycle ?')) return;
+  await api('DELETE', `/api/config/releases/${releaseId}/cycles/${cycleId}`);
+  toast('Cycle supprimé');
+  cfgData.releases = await api('GET', '/api/config/releases');
+  renderReleases();
+}
+
+// ── WORKFLOW ──────────────────────────────────────────────────────────────────
+function renderWorkflow() {
+  const wf = cfgData.workflow || {};
+
+  const renderStatus = (statuses, containerId) => {
+    document.getElementById(containerId).innerHTML = (statuses || []).map(s => `
+      <div class="ws-item">
+        <span class="ws-dot" style="background:${s.color}"></span>
+        <span class="ws-name">${s.name}</span>
+        ${s.initial ? '<span class="ws-badge">Initial</span>' : ''}
+        ${s.final   ? '<span class="ws-badge">Final</span>'   : ''}
+        <button class="btn btn-sm btn-danger" onclick="deleteWStatus('${s.id}','${containerId}')">🗑️</button>
+      </div>`).join('');
+  };
+
+  renderStatus(wf.testStatuses,    'wf-test-statuses');
+  renderStatus(wf.anomalyStatuses, 'wf-anomaly-statuses');
+
+  document.getElementById('wf-transitions').innerHTML = (wf.transitions || []).map(t => `
+    <tr>
+      <td><span class="badge badge-progress">${t.from}</span></td>
+      <td><span class="badge badge-ok">${t.to}</span></td>
+      <td>${(t.roles || []).map(r => `<span class="badge">${r}</span>`).join(' ')}</td>
+    </tr>`).join('');
+}
+
+async function saveWStatus(e) {
+  e.preventDefault();
+  const entity = document.getElementById('wstatus-entity').value;
+  const data = {
+    name: document.getElementById('ws-name').value,
+    color: document.getElementById('ws-color').value,
+    initial: document.getElementById('ws-initial').value === 'true',
+    final:   document.getElementById('ws-final').value   === 'true'
+  };
+  const url = entity === 'test' ? '/api/config/workflow/test-statuses' : '/api/config/workflow/anomaly-statuses';
+  await api('POST', url, data);
+  toast('Statut ajouté ✅');
+  closeModal('modal-wstatus');
+  cfgData.workflow = await api('GET', '/api/config/workflow');
+  renderWorkflow();
+}
+
+async function deleteWStatus(id, containerId) {
+  if (!confirm('Supprimer ce statut ?')) return;
+  const isTest = containerId === 'wf-test-statuses';
+  await api('DELETE', `/api/config/workflow/${isTest ? 'test' : 'anomaly'}-statuses/${id}`);
+  toast('Statut supprimé');
+  cfgData.workflow = await api('GET', '/api/config/workflow');
+  renderWorkflow();
+}
+
+// ── INTÉGRATIONS ──────────────────────────────────────────────────────────────
+function renderIntegrations() {
+  const grid = document.getElementById('integrations-grid');
+  grid.innerHTML = (cfgData.integrations || []).map(int => {
+    const connected = int.status === 'Connecté';
+    return `
+      <div class="int-card">
+        <div class="int-header">
+          <span class="int-icon">${int.icon}</span>
+          <div>
+            <div class="int-name">${int.name}</div>
+            <span class="badge ${connected ? 'badge-ok' : 'badge-ko'}">${int.status}</span>
+          </div>
+        </div>
+        <div class="int-body">
+          ${int.url ? `<div>🔗 <a href="${int.url}" target="_blank" class="int-url">${int.url}</a></div>` : '<div style="color:var(--text-muted)">Non configuré</div>'}
+          ${int.project ? `<div>📁 Projet : <strong>${int.project}</strong></div>` : ''}
+          ${int.apiKey  ? `<div>🔑 API Key : <code>${int.apiKey}</code></div>` : ''}
+          <div style="margin-top:6px;color:var(--primary)">↕️ ${int.sync}</div>
+        </div>
+        <div class="int-actions">
+          <button class="btn btn-sm ${connected ? 'btn-danger' : 'btn-primary'}" onclick="toggleIntegration('${int.id}', ${connected})">
+            ${connected ? '🔌 Déconnecter' : '🔗 Connecter'}
+          </button>
+          ${connected ? `<button class="btn btn-sm btn-secondary" onclick="testIntegration('${int.id}')">🧪 Tester</button>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function toggleIntegration(id, isConnected) {
+  await api('PUT', `/api/config/integrations/${id}`, { status: isConnected ? 'Déconnecté' : 'Connecté' });
+  toast(isConnected ? 'Intégration déconnectée' : 'Intégration connectée ✅');
+  cfgData.integrations = await api('GET', '/api/config/integrations');
+  renderIntegrations();
+}
+
+function testIntegration(id) {
+  const int = cfgData.integrations.find(x => x.id === id);
+  toast(`🧪 Test de connexion ${int?.name}… OK ✅`);
+}
+
+// ── IA ────────────────────────────────────────────────────────────────────────
+const aiFeatureLabels = {
+  autoGenerateTests:    { label: '✨ Génération auto de tests',      desc: 'Crée des cas de tests depuis une exigence' },
+  smartPrioritization:  { label: '🎯 Priorisation intelligente',     desc: 'Suggère les tests à exécuter en priorité' },
+  anomalySuggestion:    { label: '🐛 Suggestion d\'anomalies',       desc: 'Détecte les patterns d\'anomalies' },
+  goNoGoPrediction:     { label: '🚦 Prédiction Go/No Go',           desc: 'Prédit la décision basée sur les métriques' },
+  naturalLanguageSteps: { label: '📝 Steps en langage naturel',      desc: 'Traduit les exigences en étapes de test' },
+  duplicateDetection:   { label: '🔍 Détection de doublons',         desc: 'Identifie les tests et anomalies en doublon' },
+  coverageAnalysis:     { label: '📊 Analyse de couverture',         desc: 'Évalue la couverture fonctionnelle' },
+  riskScoring:          { label: '⚠️ Score de risque',               desc: 'Calcule un score de risque par fonctionnalité' }
+};
+
+function renderAISettings() {
+  const ai = cfgData.aiSettings || {};
+  document.getElementById('ai-model').value      = ai.model || 'claude-sonnet';
+  document.getElementById('ai-lang').value       = ai.language || 'fr';
+  document.getElementById('ai-url').value        = ai.contextUrl || '';
+  document.getElementById('ai-confidence').value = ai.minConfidenceScore ?? 75;
+  document.getElementById('ai-max').value        = ai.maxSuggestionsPerRun ?? 10;
+  document.getElementById('ai-enabled').checked  = ai.enabled !== false;
+  document.getElementById('ai-auto-gen').checked = ai.autoGenerateOnRequirement === true;
+
+  const featList = document.getElementById('ai-features-list');
+  featList.innerHTML = Object.entries(aiFeatureLabels).map(([key, info]) => `
+    <div class="ai-feature-item">
+      <div>
+        <div class="ai-feature-name">${info.label}</div>
+        <div class="ai-feature-desc">${info.desc}</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" ${(ai.features||{})[key] ? 'checked' : ''} onchange="toggleAIFeature('${key}', this.checked)" />
+        <span class="toggle-slider"></span>
+      </label>
+    </div>`).join('');
+}
+
+async function toggleAIFeature(key, val) {
+  await api('PUT', '/api/config/ai', { features: { [key]: val } });
+  toast(`Fonctionnalité IA ${val ? 'activée' : 'désactivée'}`);
+}
+
+async function saveAI(e) {
+  e.preventDefault();
+  await api('PUT', '/api/config/ai', {
+    model:                    document.getElementById('ai-model').value,
+    language:                 document.getElementById('ai-lang').value,
+    contextUrl:               document.getElementById('ai-url').value,
+    minConfidenceScore:       parseInt(document.getElementById('ai-confidence').value),
+    maxSuggestionsPerRun:     parseInt(document.getElementById('ai-max').value),
+    enabled:                  document.getElementById('ai-enabled').checked,
+    autoGenerateOnRequirement:document.getElementById('ai-auto-gen').checked
+  });
+  toast('Configuration IA enregistrée ✅');
+}
+
+async function generateAITests() {
+  const req = document.getElementById('ai-requirement').value.trim();
+  if (!req) { toast('⚠️ Décrivez d\'abord une exigence'); return; }
+  const count = parseInt(document.getElementById('ai-count').value);
+  const results = document.getElementById('ai-results');
+  results.innerHTML = '<div class="ai-loading">✨ Génération en cours…</div>';
+  const data = await api('POST', '/api/ai/generate-tests', { requirement: req, count });
+  if (!data.suggestions?.length) { results.innerHTML = '<div class="ai-loading">Aucune suggestion générée.</div>'; return; }
+  results.innerHTML = data.suggestions.map((s, i) => `
+    <div class="ai-result-card">
+      <div class="ai-result-header">
+        <span class="ai-result-title">${s.title}</span>
+        <span class="ai-confidence">✅ ${s.confidence}%</span>
+        <span class="badge ${s.priority === 'P0' ? 'badge-p0' : s.priority === 'P1' ? 'badge-p1' : 'badge-p2'}">${s.priority}</span>
+      </div>
+      <div class="ai-result-body">
+        <strong>Étapes :</strong><pre style="white-space:pre-wrap;font-family:inherit;margin:4px 0">${s.steps}</pre>
+        <strong>Résultat attendu :</strong> ${s.expected}
+      </div>
+      <div class="ai-result-actions">
+        <button class="btn btn-sm btn-primary" onclick="importAITest(${i})">⬇️ Importer dans les tests</button>
+      </div>
+    </div>`).join('');
+  window._aiSuggestions = data.suggestions;
+}
+
+async function importAITest(idx) {
+  const s = window._aiSuggestions[idx];
+  if (!s) return;
+  const campaigns = await api('GET', '/api/campaigns');
+  const campaignId = state.activeCampaignId || (campaigns[0]?.id ?? '');
+  if (!campaignId) { toast('⚠️ Sélectionnez d\'abord une campagne'); return; }
+  await api('POST', '/api/tests', {
+    campaignId, title: s.title, priority: s.priority, status: s.status,
+    steps: s.steps, expected: s.expected, obtained: '', precondition: ''
+  });
+  toast(`Test importé ✅ — ${s.title}`);
+}
+
+// ── Modale wstatus helper ─────────────────────────────────────────────────────
+function openModal(id, extra) {
+  if (id === 'modal-wstatus' && extra) {
+    document.getElementById('wstatus-entity').value = extra;
+    document.getElementById('modal-wstatus-title').textContent = extra === 'test' ? 'Nouveau statut — Test' : 'Nouveau statut — Anomalie';
+    document.getElementById('form-wstatus').reset();
+  }
+  document.getElementById(id).classList.add('open');
+}
+
 /* ── Reset modales à l'ouverture ──────────────────────────────────── */
 document.querySelectorAll('[onclick^="openModal"]').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -582,3 +1213,4 @@ document.querySelectorAll('.modal-overlay').forEach(overlay => {
     if (e.target === overlay) overlay.classList.remove('open');
   });
 });
+
